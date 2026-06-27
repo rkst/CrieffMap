@@ -1,0 +1,12 @@
+package-as: CrieffMap
+
+ignore:
+  - CLAUDE.md
+  - PLAN.md
+  - README.md
+  - media
+  - .github
+  - .gitignore
+  - .pkgmeta
+  - .DS_Store
+  - .claude

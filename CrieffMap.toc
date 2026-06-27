@@ -1,0 +1,10 @@
+## Interface: 120007
+## Title: CrieffMap
+## Notes: Moves the minimap to a preset spot outdoors, restores it in instances.
+## Author: Crieff
+## Version: @project-version@
+## SavedVariablesPerCharacter: CrieffMapCharDB
+## IconTexture: Interface\Icons\INV_Misc_Map_01
+
+Core.lua
+Mover.lua
