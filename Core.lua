@@ -1,6 +1,12 @@
 -- CrieffMap — auto-reposition the minimap by zone type.
--- Outdoors: move MinimapCluster to a saved preset point.
+-- Outdoors: move the minimap to a saved preset point.
 -- In any instance (dungeon/raid/delve/scenario/arena/bg): restore the original anchor.
+--
+-- "The minimap" means whatever frame currently governs the visible map. Normally
+-- that is MinimapCluster (the Edit Mode frame). But UI-replacement addons such as
+-- EllesmereUI detach the Minimap frame from the cluster, parent it to UIParent and
+-- hide the cluster -- after that, moving the cluster does nothing. GetTarget()
+-- resolves the correct frame at use time so we move what the player actually sees.
 
 local addonName, ns = ...
 
@@ -28,43 +34,58 @@ function CrieffMap:Print(msg)
     DEFAULT_CHAT_FRAME:AddMessage("|cff5dade2CrieffMap|r: " .. tostring(msg))
 end
 
--- Captured once, on the first PLAYER_ENTERING_WORLD, before we ever move the
--- cluster. Holds { point, relativeTo, relPoint, x, y } exactly as GetPoint() returns.
+-- The frame whose anchor controls the visible minimap. See the header note:
+-- when an addon detaches Minimap from MinimapCluster (parenting it elsewhere and
+-- hiding the cluster), we must move the Minimap frame itself; otherwise the
+-- cluster is the right handle. Resolved at use time so it tracks the live layout.
+function CrieffMap.GetTarget()
+    if Minimap and Minimap:GetParent() and Minimap:GetParent() ~= MinimapCluster then
+        return Minimap
+    end
+    return MinimapCluster
+end
+
+-- Captured once, after the layout settles at login, before we ever move the
+-- target. Holds { point, relativeTo, relPoint, x, y } exactly as GetPoint() returns.
 CrieffMap.original = nil
 
--- Restore MinimapCluster to the anchor we captured at login.
+-- Capture the live anchor before anything moves it. Guarded so it only runs
+-- once we actually get a point back; a managed frame can return nil early, and
+-- capturing {} then would later blow up RestoreOriginal.
+function CrieffMap.CaptureOriginal()
+    if CrieffMap.original then return end
+    local target = CrieffMap.GetTarget()
+    if target:GetPoint() then
+        CrieffMap.original = { target:GetPoint() }
+    end
+end
+
+-- Restore the minimap to the anchor we captured at login.
 function CrieffMap.RestoreOriginal()
     local o = CrieffMap.original
     -- o[1] (point) may be missing if GetPoint() returned nothing at capture.
     if not o or not o[1] then return end
-    MinimapCluster:ClearAllPoints()
-    MinimapCluster:SetPoint(o[1], o[2] or UIParent, o[3], o[4], o[5])
+    local target = CrieffMap.GetTarget()
+    target:ClearAllPoints()
+    target:SetPoint(o[1], o[2] or UIParent, o[3], o[4], o[5])
 end
 
--- Move MinimapCluster to the saved preset. No-op if nothing has been set yet.
+-- Move the minimap to the saved preset. No-op if nothing has been set yet.
 function CrieffMap.MoveToPreset()
     local p = CrieffMap.db and CrieffMap.db.preset
     if not p then return end
-    MinimapCluster:ClearAllPoints()
-    MinimapCluster:SetPoint(p.point, p.relativeTo or UIParent, p.relPoint, p.x, p.y)
+    local target = CrieffMap.GetTarget()
+    target:ClearAllPoints()
+    target:SetPoint(p.point, p.relativeTo or UIParent, p.relPoint, p.x, p.y)
 end
 
 -- Decide where the minimap belongs for the current zone and put it there.
 function CrieffMap.ApplyPosition()
+    CrieffMap.CaptureOriginal()
     if IsInInstance() then
         CrieffMap.RestoreOriginal()
     else
         CrieffMap.MoveToPreset()
-    end
-end
-
--- Capture the live anchor before anything moves it. Guarded so it only runs
--- once we actually get a point back; a managed MinimapCluster can return nil
--- early, and capturing {} then would later blow up RestoreOriginal.
-local function CaptureOriginal()
-    if CrieffMap.original then return end
-    if MinimapCluster:GetPoint() then
-        CrieffMap.original = { MinimapCluster:GetPoint() }
     end
 end
 
@@ -75,11 +96,12 @@ CrieffMap:RegisterEvent("ADDON_LOADED", function(loaded)
 end)
 
 -- Primary trigger: fires on login and on every instance transition.
--- Defer the apply to the next frame: Blizzard's Edit Mode also handles
--- PLAYER_ENTERING_WORLD and reapplies its layout, and if its handler runs
--- after ours it overwrites our SetPoint. Running on the next frame lands us last.
+-- Defer the apply (and the capture, which ApplyPosition does first) to the next
+-- frame: both Blizzard's Edit Mode and minimap-replacement addons like EllesmereUI
+-- reapply their layout on PLAYER_ENTERING_WORLD, some via their own C_Timer.After(0).
+-- Running on the next frame lands us after they settle, so we capture the real
+-- layout, GetTarget picks the right frame, and our SetPoint wins.
 CrieffMap:RegisterEvent("PLAYER_ENTERING_WORLD", function()
-    CaptureOriginal()
     C_Timer.After(0, CrieffMap.ApplyPosition)
 end)
 
@@ -91,13 +113,13 @@ end)
 local function HandleSlash(arg)
     arg = arg and strtrim(arg):lower() or ""
     if arg == "drag" then
-        CrieffMap.Mover:Toggle()
+        CrieffMap.Mover:Start()
     elseif arg == "reset" then
         CrieffMap.db.preset = nil
         CrieffMap.ApplyPosition()
         CrieffMap:Print("preset cleared.")
     else
-        CrieffMap:Print("|cffffff00/cmap drag|r to set the outdoor spot (drag the minimap, then /cmap drag again), |cffffff00/cmap reset|r to clear it.")
+        CrieffMap:Print("|cffffff00/cmap drag|r to set the outdoor spot (drag the minimap, then click Save), |cffffff00/cmap reset|r to clear it.")
     end
 end
 

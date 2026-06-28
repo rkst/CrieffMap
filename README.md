@@ -19,15 +19,15 @@ That's the whole addon. No options frame, no profiles, no extra buttons.
 
 While standing in the open world:
 
-1. Type `/cmap drag`.
-2. Drag the minimap to wherever you want it for outdoor play.
-3. Type `/cmap drag` again to save.
+1. Type `/cmap drag`. A small panel with **Save** and **Cancel** buttons appears.
+2. Drag the minimap to wherever you want it for outdoor play (drag as many times as you like to fine-tune).
+3. Click **Save** to keep it, or **Cancel** to put it back.
 
 The position is stored per-character, so each character can have its own layout.
 
 ## Slash Commands
 
-- `/cmap drag` (or `/crieffmap drag`) — toggles drag mode: drag the minimap to your preferred outdoor spot, then run it again to save.
+- `/cmap drag` (or `/crieffmap drag`) — enters drag mode: drag the minimap to your preferred outdoor spot, then click **Save** (or **Cancel** to discard).
 - `/cmap reset` — clears the saved spot. The minimap then stays in its normal location everywhere.
 - `/cmap` — prints a short help line.
 
@@ -44,6 +44,10 @@ CrieffMap supports retail WoW (The War Within / Midnight, Interface 12.0.0+).
 ## A Note On Edit Mode
 
 In modern retail, the minimap's default position is managed by Blizzard's Edit Mode. CrieffMap re-applies your chosen position after every zone change, deliberately running just after Edit Mode settles its own layout so the two don't fight. This covers normal play. In the unlikely event the minimap ends up somewhere unexpected outdoors, a reload (`/reload`) will sort it — and please open an issue so it can be looked into.
+
+## Compatibility With UI Replacements (EllesmereUI etc.)
+
+Some full-UI addons — EllesmereUI is the common one — don't just move the minimap, they detach it from Blizzard's `MinimapCluster`, parent it straight to the screen and hide the original cluster. CrieffMap detects this and moves whichever frame is actually showing the map, so it works the same way: your saved outdoor spot is used in the open world, and inside instances the minimap returns to wherever that addon normally places it. Set your spot with `/cmap drag` exactly as above.
 
 ## Reporting Issues
 
