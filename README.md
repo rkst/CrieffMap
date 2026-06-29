@@ -4,8 +4,6 @@ A small World of Warcraft addon that moves your minimap to a spot you pick while
 
 I like my minimap near the middle of the screen while questing, but not while I'm in a dungeon. I got tired of dragging it back and forth, so I wrote this.
 
-![CrieffMap preview](https://raw.githubusercontent.com/rkst/CrieffMap/main/media/placeholder.png "CrieffMap preview, replace with a real screenshot")
-
 ## How it works
 
 You pick one outdoor position. After that, CrieffMap watches every zone change:
