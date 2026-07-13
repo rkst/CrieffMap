@@ -145,20 +145,45 @@ CrieffMap:RegisterEvent("ADDON_LOADED", function(loaded)
     CrieffMap.db = CrieffMapCharDB
 end)
 
--- Primary trigger: fires on login and on every instance transition.
--- Defer the apply (and the capture, which ApplyPosition does first) to the next
--- frame: both Blizzard's Edit Mode and minimap-replacement addons like EllesmereUI
--- reapply their layout on PLAYER_ENTERING_WORLD, some via their own C_Timer.After(0).
--- Running on the next frame lands us after they settle, so we capture the real
--- layout, GetTarget picks the right frame, and our SetPoint wins.
-CrieffMap:RegisterEvent("PLAYER_ENTERING_WORLD", function()
-    C_Timer.After(0, CrieffMap.ApplyPosition)
-end)
+-- Re-assert our position by polling across the transition settle window, not with
+-- a single next-frame apply.
+--
+-- Why: both Blizzard's load sequence and minimap-replacement addons re-anchor the
+-- minimap on their own deferred timers at a moment we can't predict. EllesmereUI
+-- in particular positions the minimap on its *first activation*, and that
+-- activation re-runs on every /reload (its `active` guard lives in a Lua table
+-- that resets with the UI), firing a deferred SetPoint back to its configured
+-- spot. A busy zone pushes that re-anchor out further: in a capital city
+-- (Silvermoon) it lands over a second after the event -- past any fixed deadline
+-- we'd hardcode. Debug proved this: five taps out to 1.0s each set *and* read back
+-- BOTTOM, then the map still ended at CENTER because the clobber came later.
+--
+-- We can't win a race against a timer we don't own, and we can't stop early on
+-- "looks stable" either -- the position looks settled right up until that single
+-- late clobber fires. But the clobber is one-shot per transition (a manual
+-- `/cmap apply` holds indefinitely), so we simply outlast it: re-apply densely for
+-- a few seconds and correct any drift within one tick. ApplyPosition is idempotent
+-- -- CaptureOriginal is guarded to run once, MoveToPreset/RestoreOriginal just
+-- re-set the same anchor, and IsInInstance() is read fresh each tick -- so the
+-- repeated taps are harmless and a late tick still resolves the current zone.
+-- WATCH_TICKS * WATCH_INTERVAL must exceed the slowest transition's re-anchor;
+-- if a revert is ever seen later than that window, raise WATCH_TICKS.
+local WATCH_INTERVAL = 0.2   -- seconds between re-asserts
+local WATCH_TICKS    = 25    -- ~5s of polling after each transition
+
+local watchTicker
+local function StartWatch()
+    -- A fresh transition restarts the poll so tickers don't stack across zones.
+    if watchTicker then watchTicker:Cancel() end
+    CrieffMap.ApplyPosition()   -- immediate assert (also captures original once)
+    watchTicker = C_Timer.NewTicker(WATCH_INTERVAL, CrieffMap.ApplyPosition, WATCH_TICKS)
+end
+
+-- Primary trigger: fires on login, on every instance transition, and on /reload.
+CrieffMap:RegisterEvent("PLAYER_ENTERING_WORLD", StartWatch)
 
 -- Catches outdoor world transitions that don't reload the world.
-CrieffMap:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
-    CrieffMap.ApplyPosition()
-end)
+CrieffMap:RegisterEvent("ZONE_CHANGED_NEW_AREA", StartWatch)
 
 -- One-shot snapshot of everything that decides where the minimap lands. This is
 -- the first thing to check when it "stopped moving": it tells you whether an
