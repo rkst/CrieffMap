@@ -35,7 +35,7 @@ CrieffMap uses the game's own `IsInInstance()` check on every zone transition. A
 
 ## Installation
 
-CrieffMap supports retail WoW (The War Within / Midnight, Interface 12.0.0 and up).
+CrieffMap supports retail WoW (Midnight, patch 12.1, Interface 120100).
 
 Download the latest release zip from the [Releases page](https://github.com/rkst/CrieffMap/releases) and extract it into `World of Warcraft/_retail_/Interface/AddOns/`.
 

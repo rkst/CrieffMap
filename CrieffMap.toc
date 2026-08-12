@@ -1,4 +1,4 @@
-## Interface: 120007
+## Interface: 120100
 ## Title: CrieffMap
 ## Notes: Moves the minimap to a preset spot outdoors, restores it in instances.
 ## Author: Crieff
